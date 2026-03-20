@@ -1,0 +1,20 @@
+{
+  "base_url": "https://forum.com/thread/",
+  "start_time": "2026-03-20T13:18:00.257697",
+  "pages_archived": [],
+  "failed_pages": [
+    {
+      "url": "https://forum.com/thread/1",
+      "timestamp": "",
+      "status_code": null,
+      "error": "HTTPSConnectionPool(host='forum.com', port=443): Max retries exceeded with url: /thread/1 (Caused by NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x00000284C6A65BD0>: Failed to establish a new connection: [Errno 11001] getaddrinfo failed'))"
+    }
+  ],
+  "images_downloaded": [],
+  "css_inlined": 0,
+  "js_inlined": 0,
+  "end_time": "2026-03-20T13:18:02.347614",
+  "total_pages": 0,
+  "failed_count": 1,
+  "total_images": 0
+}

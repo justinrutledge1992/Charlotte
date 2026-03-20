@@ -28,7 +28,7 @@ except ImportError:
 
 
 class Charlotte:
-    def __init__(self, base_url, output_dir="archived_pages", delay=1.0, download_assets=False):
+    def __init__(self, base_url, output_dir="archived_pages", delay=1.0, download_assets=False, cookies=None):
         """
         Initialize Charlotte the web archiver.
         
@@ -37,6 +37,7 @@ class Charlotte:
             output_dir: Directory to save archived pages
             delay: Delay between requests in seconds (be respectful!)
             download_assets: Whether to inline CSS/JS and download images (default: False for lightweight archives)
+            cookies: Optional dict of cookie name/value pairs for authenticated sessions
         """
         self.base_url = base_url
         self.output_dir = Path(output_dir)
@@ -46,6 +47,12 @@ class Charlotte:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (compatible; Charlotte/1.0; +https://github.com/charlotte-web-archiver)'
         })
+        
+        # Inject session cookies if provided
+        if cookies:
+            for name, value in cookies.items():
+                self.session.cookies.set(name, value)
+            print(f"🍪 Session cookies loaded: {', '.join(cookies.keys())}")
         
         # Create output directory structure
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -424,6 +431,8 @@ If you're getting rate limited or blocked, increase --delay to 2.0 or higher.
                         help='Delay between requests in seconds (default: 1.0, increase if rate limited)')
     parser.add_argument('--with-assets', action='store_true',
                         help='Include CSS/JS and images (creates larger files, use for rich content)')
+    parser.add_argument('--cookie', action='append', metavar='NAME=VALUE',
+                        help='Session cookie as NAME=VALUE (can be used multiple times, e.g. --cookie sessionid=abc123)')
     
     args = parser.parse_args()
     
@@ -441,12 +450,23 @@ If you're getting rate limited or blocked, increase --delay to 2.0 or higher.
     else:
         output_path = Path(args.output)
     
+    # Parse cookies from --cookie NAME=VALUE args
+    cookies = {}
+    if args.cookie:
+        for c in args.cookie:
+            if '=' in c:
+                name, value = c.split('=', 1)
+                cookies[name.strip()] = value.strip()
+            else:
+                print(f"⚠️  Ignoring invalid cookie format: {c} (expected NAME=VALUE)")
+
     # Create Charlotte archiver
     charlotte = Charlotte(
         base_url=args.pattern.split('{')[0],
         output_dir=str(output_path),
         delay=args.delay,
-        download_assets=args.with_assets
+        download_assets=args.with_assets,
+        cookies=cookies if cookies else None
     )
     
     # Generate URLs

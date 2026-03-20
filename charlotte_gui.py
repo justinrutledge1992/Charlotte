@@ -10,25 +10,14 @@ import threading
 import sys
 from pathlib import Path
 
-# Import Charlotte - handle both module import and direct inclusion
-try:
-    from charlotte import Charlotte
-except ImportError:
-    # If running as compiled exe, charlotte might be in same directory
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("charlotte", "charlotte.py")
-    if spec and spec.loader:
-        charlotte_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(charlotte_module)
-        Charlotte = charlotte_module.Charlotte
-    else:
-        raise ImportError("Cannot find charlotte.py")
+# Import Charlotte
+from charlotte import Charlotte
 
 class CharlotteGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Charlotte Web Archiver")
-        self.root.geometry("700x600")
+        self.root.geometry("700x950")
         self.root.resizable(True, True)
         
         # Variables
@@ -104,6 +93,61 @@ class CharlotteGUI:
         self.output_var = tk.StringVar(value="charlotte_archives")
         self.output_entry = ttk.Entry(input_frame, textvariable=self.output_var, width=30)
         self.output_entry.grid(row=6, column=1, sticky=tk.W, pady=5)
+
+        # Session Cookies section
+        ttk.Separator(input_frame, orient='horizontal').grid(
+            row=7, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=8
+        )
+
+        cookie_title = ttk.Label(
+            input_frame,
+            text="Session Cookies (optional — for login-protected forums)",
+            font=('Arial', 9, 'bold')
+        )
+        cookie_title.grid(row=8, column=0, columnspan=2, sticky=tk.W, pady=(0, 4))
+
+        ttk.Label(
+            input_frame,
+            text="Find these in Firefox DevTools → Storage tab → Cookies",
+            font=('Arial', 8, 'italic'),
+            foreground='gray'
+        ).grid(row=9, column=0, columnspan=2, sticky=tk.W, pady=(0, 6))
+
+        # Cookie table frame
+        cookie_frame = ttk.Frame(input_frame)
+        cookie_frame.grid(row=10, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=4)
+
+        # Column headers
+        ttk.Label(cookie_frame, text="Name", font=('Arial', 8, 'bold')).grid(
+            row=0, column=0, padx=(0, 4), pady=(0, 2), sticky=tk.W
+        )
+        ttk.Label(cookie_frame, text="Value", font=('Arial', 8, 'bold')).grid(
+            row=0, column=1, padx=(0, 4), pady=(0, 2), sticky=tk.W
+        )
+
+        # List to hold (name_var, value_var) tuples
+        self.cookie_rows = []
+
+        self.cookie_table_frame = ttk.Frame(cookie_frame)
+        self.cookie_table_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E))
+
+        # Add/Remove buttons
+        btn_frame = ttk.Frame(cookie_frame)
+        btn_frame.grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=(6, 0))
+
+        ttk.Button(
+            btn_frame, text="+ Add Cookie", command=self._add_cookie_row, width=14
+        ).grid(row=0, column=0, padx=(0, 6))
+
+        ttk.Button(
+            btn_frame, text="− Remove Last", command=self._remove_cookie_row, width=14
+        ).grid(row=0, column=1)
+
+        cookie_frame.columnconfigure(1, weight=1)
+
+        # Start with two empty rows
+        self._add_cookie_row()
+        self._add_cookie_row()
         
         # Make column 1 expandable
         input_frame.columnconfigure(1, weight=1)
@@ -151,7 +195,39 @@ class CharlotteGUI:
         # Configure grid weights
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(3, weight=1)
-        
+
+    def _add_cookie_row(self):
+        """Add a new cookie name/value row to the table"""
+        idx = len(self.cookie_rows)
+        name_var = tk.StringVar()
+        value_var = tk.StringVar()
+
+        name_entry = ttk.Entry(self.cookie_table_frame, textvariable=name_var, width=22)
+        name_entry.grid(row=idx, column=0, padx=(0, 6), pady=2, sticky=tk.W)
+
+        value_entry = ttk.Entry(self.cookie_table_frame, textvariable=value_var, width=44)
+        value_entry.grid(row=idx, column=1, pady=2, sticky=(tk.W, tk.E))
+
+        self.cookie_rows.append((name_var, value_var, name_entry, value_entry))
+
+    def _remove_cookie_row(self):
+        """Remove the last cookie row from the table"""
+        if not self.cookie_rows:
+            return
+        name_var, value_var, name_entry, value_entry = self.cookie_rows.pop()
+        name_entry.destroy()
+        value_entry.destroy()
+
+    def _get_cookies(self):
+        """Collect all non-empty cookie name/value pairs from the table"""
+        cookies = {}
+        for name_var, value_var, _, _ in self.cookie_rows:
+            name = name_var.get().strip()
+            value = value_var.get().strip()
+            if name and value:
+                cookies[name] = value
+        return cookies
+
     def log(self, message):
         """Add message to log window"""
         self.log_text.insert(tk.END, message + "\n")
@@ -217,16 +293,17 @@ class CharlotteGUI:
         end = int(self.end_var.get())
         delay = float(self.delay_var.get())
         output = self.output_var.get().strip()
+        cookies = self._get_cookies()
         
         # Start archiving in a separate thread
         thread = threading.Thread(
             target=self.archive_thread,
-            args=(url_pattern, start, end, delay, output),
+            args=(url_pattern, start, end, delay, output, cookies),
             daemon=True
         )
         thread.start()
         
-    def archive_thread(self, url_pattern, start, end, delay, output):
+    def archive_thread(self, url_pattern, start, end, delay, output, cookies=None):
         """Thread function for archiving"""
         try:
             # Determine output directory (same location as exe)
@@ -246,6 +323,12 @@ class CharlotteGUI:
             self.log(f"Delay: {delay}s")
             self.log(f"Output: {output_path}")
             self.log(f"Mode: Lightweight (HTML only)")
+
+            if cookies:
+                self.log(f"🍪 Session cookies loaded: {', '.join(cookies.keys())}")
+            else:
+                self.log(f"🔓 No session cookies — archiving as guest")
+
             self.log("-" * 60)
             
             # Create Charlotte instance
@@ -254,7 +337,8 @@ class CharlotteGUI:
                 base_url=base_url,
                 output_dir=str(output_path),
                 delay=delay,
-                download_assets=False
+                download_assets=False,
+                cookies=cookies if cookies else None
             )
             
             # Generate URLs

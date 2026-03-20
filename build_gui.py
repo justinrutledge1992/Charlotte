@@ -28,11 +28,21 @@ def build_gui_executable():
         "--windowed",                         # No console window (GUI only)
         "--name=charlotte_gui",               # Name of the executable
         "--icon=NONE",                        # You can add an icon later
-        "--add-data=charlotte.py;.",          # Include charlotte module
-        "--add-data=charlotte_branding.py;.", # Include branding
-        "--hidden-import=bs4",                # Ensure BeautifulSoup is included
-        "--hidden-import=requests",           # Ensure requests is included
-        "--hidden-import=tkinter",            # Ensure tkinter is included
+        "--hidden-import=charlotte",          # Import charlotte as module
+        "--hidden-import=charlotte_branding", # Import branding as module
+        "--hidden-import=bs4",                # BeautifulSoup
+        "--hidden-import=bs4.builder",        # BS4 builder
+        "--hidden-import=bs4.builder._html5lib",
+        "--hidden-import=bs4.builder._htmlparser",
+        "--hidden-import=bs4.builder._lxml",
+        "--hidden-import=soupsieve",          # BS4 dependency
+        "--hidden-import=requests",           # Requests
+        "--hidden-import=urllib3",            # Requests dependency
+        "--hidden-import=charset_normalizer", # Requests dependency
+        "--hidden-import=certifi",            # Requests dependency
+        "--hidden-import=idna",               # Requests dependency
+        "--collect-all=bs4",                  # Collect all BS4 files
+        "--collect-all=requests",             # Collect all requests files
         "charlotte_gui.py"
     ]
     
